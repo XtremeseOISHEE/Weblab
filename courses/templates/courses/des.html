@@ -42,6 +42,7 @@
                 <tr>
                     <th>Title</th>
                     <th>Content</th>
+                    <th>Video URL</th> 
                 </tr>
             </thead>
             <tbody>
@@ -49,6 +50,13 @@
                 <tr>
                     <td>{{ less.title }}</td>
                     <td>{{ less.content }}</td>
+                    <td>
+                        {% if less.video_url %}
+                            <a href="{{ less.video_url }}" target="_blank">Watch Video</a>
+                        {% else %}
+                            No Video Available
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

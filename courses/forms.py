@@ -15,11 +15,13 @@ class CourseForm(forms.ModelForm):
 class LessonForm(forms.ModelForm):
     class Meta:
         model = Lesson
-        fields = ['course', 'title', 'content']
+        fields = ['course', 'title', 'content','video_url']
         widgets = {
             'course': forms.Select(attrs={'class': 'form-control'}),
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'content': forms.Textarea(attrs={'class': 'form-control'}),
+            'video_url': forms.URLInput(attrs={'class': 'form-control'}),
+            'completion_status': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 class CourseEnrollmentForm(forms.Form):

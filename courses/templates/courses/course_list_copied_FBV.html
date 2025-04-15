@@ -1,0 +1,79 @@
+{% extends "courses/base.html" %}
+
+{% block title %}Course List{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center">Course Management</h2>
+
+    <!-- Success and Error Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert {% if message.level_tag == 'error' %}alert-danger{% else %}alert-success{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Button to Create a New Course -->
+    <a href="{% url 'course_create' %}" class="btn btn-success mb-3">Create New Course</a>
+
+    <!-- Course List View -->
+    <ul class="list-group">
+        {% for item in course_data %}
+            <li class="list-group-item mb-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center">
+                    <div class="d-flex">
+                        <img src="{{ item.course.thumbnail.url }}" width="150" height="100" class="me-3 rounded" alt="{{ item.course.title }}">
+                        <div>
+                            <h5>{{ item.course.title }}</h5>
+                            <p class="mb-1">{{ item.course.description|truncatewords:10 }}</p>
+                            <small class="text-muted">Duration: {{ item.course.duration }} hrs</small><br>
+
+                            <!-- ✅ Enrollment Status Badge -->
+                            {% if item.is_enrolled %}
+                                <span class="badge bg-success">Enrolled</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Not Enrolled</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="text-end mt-2 mt-md-0">
+                        <!-- Course Actions -->
+                        <a href="{% url 'course_update' item.course.id %}" class="btn btn-warning btn-sm mb-1">Edit</a>
+
+                        <form action="{% url 'course_delete' item.course.id %}" method="post" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm mb-1" onclick="return confirm('Are you sure you want to delete this course?')">
+                                Delete
+                            </button>
+                        </form>
+
+                        <!-- Lesson Management -->
+                        <div class="mt-1">
+                            <a href="{% url 'lesson_create' %}" class="btn btn-info btn-sm">Add Lesson</a>
+                            <!-- <a href="{% url 'course_detail' item.course.id %}" class="btn btn-secondary btn-sm">View Lessons</a> -->
+                        </div>
+                        <div class="mt-1">
+                            <!-- <a href="{% url 'lesson_create' %}" class="btn btn-info btn-sm">Add Lesson</a> -->
+                            <a href="{% url 'course_detail' item.course.id %}" class="btn btn-secondary btn-sm">View Lessons</a>
+                        </div>
+
+                        <!-- View Students -->
+                        <div class="mt-1">
+                            {% if item.course.id %}
+                                <a href="{% url 'view_students' item.course.id %}" class="btn btn-primary btn-sm">View Students</a>
+                            {% else %}
+                                <span>No ID available</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </li>
+        {% empty %}
+            <li class="list-group-item text-center">No courses available.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

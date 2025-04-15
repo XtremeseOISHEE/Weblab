@@ -210,6 +210,32 @@
 #     messages.success(request, "You have been logged out.")
 #     return redirect('/')
 
+# # Course List
+# #@login_required
+# def course_list(request):
+#     courses = Course.objects.all()
+#     return render(request, 'courses/course_list.html', {'courses': courses})
+
+# # Course Detail
+# @login_required
+# def course_detail(request, course_id):
+#     course = get_object_or_404(Course, id=course_id)
+#     lessons = course.lessons.all()
+#     return render(request, 'courses/course_detail.html', {'course': course, 'lessons': lessons})
+
+
+# Create Course
+# @login_required
+# def course_create(request):
+#     if request.method == "POST":
+#         form = CourseForm(request.POST, request.FILES)
+#         if form.is_valid():
+#             form.save()
+#             messages.success(request, "Course created successfully!")
+#             return redirect('course_list')
+#     else:
+#         form = CourseForm()
+#     return render(request, 'courses/course_form.html', {'form': form})
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -218,43 +244,137 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from .models import Course, Lesson, Student
 from .forms import CourseForm, LessonForm, CourseEnrollmentForm
-
-
-
-
 from .forms import UserUpdateForm
 
+from django.views.generic import ListView, DetailView
+from .models import Course
+from django.views.generic.edit import CreateView
+from django.urls import reverse_lazy
+
+from django.http import HttpResponseForbidden
 
 
-# Course List
-#@login_required
-def course_list(request):
-    courses = Course.objects.all()
-    return render(request, 'courses/course_list.html', {'courses': courses})
 
-# Course Detail
-@login_required
-def course_detail(request, course_id):
-    course = get_object_or_404(Course, id=course_id)
-    lessons = course.lessons.all()
-    return render(request, 'courses/course_detail.html', {'course': course, 'lessons': lessons})
+from django.contrib.auth.mixins import LoginRequiredMixin
 
-# Create Course
-@login_required
-def course_create(request):
-    if request.method == "POST":
-        form = CourseForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Course created successfully!")
-            return redirect('course_list')
-    else:
-        form = CourseForm()
-    return render(request, 'courses/course_form.html', {'form': form})
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from .serializers import CourseSerializer
+
+
+from .models import Course, Student
+
+class CourseListAPI(APIView):
+    def get(self, request):
+        courses = Course.objects.all()
+        serializer = CourseSerializer(courses, many=True)
+        return Response(serializer.data)
+
+class CourseDetailAPI(APIView):
+    def get(self, request, pk):
+        try:
+            course = Course.objects.get(pk=pk)
+        except Course.DoesNotExist:
+            return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CourseSerializer(course)
+        return Response(serializer.data)
+
+class EnrollStudentAPI(APIView):
+    def post(self, request):
+        student_email = request.data.get('email')  # Get the email from the request
+        course_id = request.data.get('course_id')  # Get the course ID from the request
+
+        try:
+            course = Course.objects.get(id=course_id)  # Try to fetch the course with the given ID
+        except Course.DoesNotExist:
+            return Response({'error': 'Course not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Create or get the student by email
+        student, created = Student.objects.get_or_create(email=student_email)
+        student.enrolled_courses.add(course)  # Add the course to the student's enrolled courses
+
+        return Response({'message': f'{student.email} has been enrolled in {course.title}'})
+
+
+class CourseListView(LoginRequiredMixin, ListView):
+    model = Course
+    template_name = 'courses/course_list.html'
+    context_object_name = 'courses'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        courses = context['courses']
+
+        # Get student object for this user
+        try:
+            student = Student.objects.get(user=user)
+        except Student.DoesNotExist:
+            student = None
+
+        # Add enrollment status to each course
+        enrolled_courses = student.enrolled_courses.all() if student else []
+
+        course_data = []
+        for course in courses:
+            course_data.append({
+                'course': course,
+                'is_enrolled': course in enrolled_courses
+            })
+
+        context['course_data'] = course_data
+        return context
+
+
+# class CourseDetailView(LoginRequiredMixin, DetailView):
+#     model = Course
+#     template_name = 'courses/course_detail.html'
+#     context_object_name = 'course'
+#     #niche function ta chatgpt dise mon chaile remove kore dibo
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context['lessons'] = self.object.lessons.all()
+#         return context
+class CourseDetailView(LoginRequiredMixin, DetailView):
+    model = Course
+    template_name = 'courses/course_detail.html'
+    context_object_name = 'course'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['lessons'] = self.object.lessons.all()
+
+        # Add student to context
+        if self.request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=self.request.user)
+                context['student'] = student
+            except Student.DoesNotExist:
+                context['student'] = None
+        else:
+            context['student'] = None
+
+        return context
+
+
+class CourseCreateView(LoginRequiredMixin, CreateView):
+    model = Course
+    fields = ['title', 'description', 'duration', 'thumbnail']
+    template_name = 'courses/course_form.html'
+    success_url = reverse_lazy('course_list')
+    # def dispatch(self, request, *args, **kwargs):
+    #     if not request.user.is_staff:
+    #         return HttpResponseForbidden("Only staff can create courses.")
+    #     return super().dispatch(request, *args, **kwargs)
 
 # Update Course
 @login_required
 def course_update(request, course_id):
+    # if not request.user.is_staff:
+    #     return HttpResponseForbidden("You are not authorized to update courses.")
+    
     course = get_object_or_404(Course, id=course_id)
     if request.method == "POST":
         form = CourseForm(request.POST, request.FILES, instance=course)
@@ -269,6 +389,9 @@ def course_update(request, course_id):
 # Delete Course
 @login_required
 def course_delete(request, course_id):
+    # if not request.user.is_staff:
+    #     return HttpResponseForbidden("You are not authorized to update courses.")
+    
     course = get_object_or_404(Course, id=course_id)
     if request.method == "POST":
         course.delete()
@@ -279,6 +402,8 @@ def course_delete(request, course_id):
 # Create Lesson
 @login_required
 def lesson_create(request):
+    # if not request.user.is_staff:
+    #     return HttpResponseForbidden("You are not authorized to update courses.")
     if request.method == "POST":
         form = LessonForm(request.POST)
         if form.is_valid():
@@ -292,6 +417,8 @@ def lesson_create(request):
 # Update Lesson
 @login_required
 def lesson_update(request, lesson_id):
+    # if not request.user.is_staff:
+    #     return HttpResponseForbidden("You are not authorized to update courses.")
     lesson = get_object_or_404(Lesson, id=lesson_id)
     if request.method == "POST":
         form = LessonForm(request.POST, instance=lesson)
@@ -306,6 +433,8 @@ def lesson_update(request, lesson_id):
 # Delete Lesson
 @login_required
 def lesson_delete(request, lesson_id):
+    # if not request.user.is_staff:
+    #     return HttpResponseForbidden("You are not authorized to update courses.")
     lesson = get_object_or_404(Lesson, id=lesson_id)
     if request.method == "POST":
         lesson.delete()
@@ -350,29 +479,65 @@ def view_students(request, course_id):
     return render(request, 'courses/view_students.html', {'course': course, 'students': students})
 
 # User Registration
+# def register(request):
+#     if request.method == 'POST':
+#         form = UserCreationForm(request.POST)
+#         if form.is_valid():
+#             user = form.save()
+#             login(request, user)
+#             messages.success(request, "Registration successful!")
+#             return redirect('/')
+#     else:
+#         form = UserCreationForm()
+#     return render(request, 'courses/register.html', {'form': form})
 def register(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
+            email = request.POST.get('email')  # ✅ Get email from the form
             user = form.save()
+            user.email = email
+            user.save()
+
+            # ✅ Create a Student linked to this user
+            Student.objects.create(user=user, name=user.username, email=email)
+
             login(request, user)
-            messages.success(request, "Registration successful!")
             return redirect('/')
     else:
         form = UserCreationForm()
     return render(request, 'courses/register.html', {'form': form})
 
 # User Login
+# def user_login(request):
+#     if request.method == 'POST':
+#         form = AuthenticationForm(data=request.POST)
+#         if form.is_valid():
+#             user = form.get_user()
+#             login(request, user)
+#             messages.success(request, "Login successful!")
+#             return redirect('/')
+#         else:
+#             messages.error(request, "Invalid username or password.")
+#     else:
+#         form = AuthenticationForm()
+#     return render(request, 'courses/login.html', {'form': form})
 def user_login(request):
     if request.method == 'POST':
         form = AuthenticationForm(data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            messages.success(request, "Login successful!")
+
+            # ✅ Ensure student exists or create if missing
+            Student.objects.get_or_create(
+                user=user,
+                defaults={
+                    'name': user.username,
+                    'email': user.email
+                }
+            )
             return redirect('/')
-        else:
-            messages.error(request, "Invalid username or password.")
     else:
         form = AuthenticationForm()
     return render(request, 'courses/login.html', {'form': form})
@@ -397,3 +562,7 @@ def profile(request):
         form = UserUpdateForm(instance=request.user)
     
     return render(request, 'courses/profile.html', {'form': form})
+
+def lesson_detail(request, lesson_id):
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+    return render(request, 'courses/lesson_detail.html', {'lesson': lesson})
