@@ -4,7 +4,11 @@ Django coursework project for managing courses, lessons and student enrollment, 
 
 ## Current status
 
-**Development prototype; not currently deployed.** There is no current public live demo. Feature verification, cleanup and deployment preparation remain follow-up work; the repository is not presented as a finished production service.
+**Development prototype with a hosted version on Render.**
+
+**[Open hosted demo](https://weblab-ivi1.onrender.com/login/?next=/)**
+
+The public login page was reachable on 25 November 2026. Authenticated workflows were not tested in this documentation update. Further feature verification, cleanup and refinement remain follow-up work; the repository is not presented as a finished production service.
 
 ## Features visible in the source
 
@@ -82,4 +86,4 @@ Consult `courses/urls.py`, views and serializers for supported HTTP methods, pay
 - Add meaningful workflow/permission tests; existing test-file names alone are not evidence of coverage.
 - Review committed database/media content and move deployment-used secrets out of source.
 
-Student models can hold names and emails; the contents of the committed database were not examined for this README. No hosted demo or production readiness is claimed, and no project-wide licence is asserted.
+Student models can hold names and emails; the contents of the committed database were not examined for this README. The hosted demo does not establish production readiness. No project-wide licence is asserted.
